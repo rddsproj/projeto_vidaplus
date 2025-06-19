@@ -8,6 +8,7 @@ router.patch('/cancelar/:idConsulta', authToken, consultaController.cancelarCons
 router.patch('/agendar', authToken, consultaController.agendarConsulta)
 router.delete('/deletar/:id', authToken, consultaController.deletarConsulta)
 router.get('/listar', authToken, consultaController.listarConsultas)
+router.patch('/finalizar/:idConsulta', authToken, consultaController.finalizarConsulta)
 
 
 module.exports = router

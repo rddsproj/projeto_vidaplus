@@ -16,7 +16,7 @@ const consultaSchema = new Schema({
     required: true },
   status: {
     type: String,
-    enum:["livre", "agendada", "concluido"],
+    enum:["livre", "agendada", "concluida"],
     default: 'livre' },
   link:{
     type: String,

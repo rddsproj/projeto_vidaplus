@@ -197,7 +197,43 @@ static async cancelarConsulta(req, res){
 }
         
 }
-
+static async finalizarConsulta(req, res){
+    const idConsulta = req.params.idConsulta
+    const userId = req.user.id
+    const tokenRole = req.user.role
+    //VERIFICA SE O PARAMETRO É UM OBJECTID
+    if (!mongoose.Types.ObjectId.isValid(idConsulta)) {
+                return res.status(400).json({ message: 'ID da Consulta inválido' });
+            }
+    if(!idConsulta){
+        return res.status(400).json({message: 'É necessario um id da consulta'})
+    }
+    if(!userId){
+        return res.status(400).json({message: 'É necessario um id do paciente'})
+    }
+    try {
+        //ENCONTRA A CONSULTA PELO ID
+        const consulta = await Consulta.findById(idConsulta)
+        //SE ESTIVER LIVRE, APONTA QUE JÁ ESTÁ LIVRE
+    if(consulta.status == 'concluida'){
+        return res.status(409).json({message: 'Essa consulta já foi finalizada'})
+    }
+    //SE O PACIENTE FOR O MESMO QUE O DA CONSULTA, FOR ADMIN OU ATENDENTE, PODE CANCELAR
+    if(tokenRole === 'admin' || tokenRole ==='medico'){
+        consulta.status = 'concluida'
+        consulta.paciente = null
+        await consulta.save();
+        //REGISTRA NO LOG
+        logController.registrarLog(userId, 306, "Finalização de Consulta", `A consulta id:${idConsulta} foi finalizada com sucesso pelo usuario: ${userId}!`)
+        return res.status(200).json({message:"Consulta finalizada com sucesso!"})
+    }else{
+        return res.status(403).json({message:"Você não possui permissao para finalizar consultas!"})
+    }
+}catch(err){
+    return res.status(500).json({message:'Ocorreu um erro ao finalizar a consulta: ', error:err.message})
+}
+        
+}
 //DELETE
 //DELETA UMA CONSULTA EXISTENTE
 static async deletarConsulta(req,res){

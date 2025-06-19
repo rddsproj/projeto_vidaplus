@@ -13,6 +13,7 @@ module.exports = class logController {
     303 - Agendamento de Consulta
     304 - Cancelamento de Consulta
     305 - Exclusão de Consulta
+    306 - conclusão de Consulta
     401 - Criação de Prontuario
     402 - Alteração de Prontuario
     403 - Exclusão de Prontuario
