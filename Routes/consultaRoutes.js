@@ -7,6 +7,7 @@ router.post('/criar', authToken, consultaController.criarConsulta)
 router.patch('/cancelar/:idConsulta', authToken, consultaController.cancelarConsulta)
 router.patch('/agendar', authToken, consultaController.agendarConsulta)
 router.delete('/deletar/:id', authToken, consultaController.deletarConsulta)
-router.get('/listar/:filtro', authToken, consultaController.listarPorStatus)
+router.get('/listar', authToken, consultaController.listarConsultas)
+
 
 module.exports = router

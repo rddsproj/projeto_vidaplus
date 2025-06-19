@@ -1,33 +1,46 @@
 const Consulta = require('../Models/Consulta')
 const logController = require('../Controllers/logController')
-
+const mongoose = require('mongoose');
 
 
 module.exports = class consultaController {
 //CREATE
-static async criarConsulta(req, res) { // função para criar 
-    const {data, paciente, medico, especialidade} = req.body
-    const userID = req.user.id//recebe o user apos validação do token
-    const role = req.user.role
-    
+//FUNÇÃO PARA CRIAR UMA NOVA CONSULTA
+static async criarConsulta(req, res) {
+    const {data, horario, medico, especialidade, link} = req.body
+    //RECEBE O ID DO USER APÓS VALIDAÇÃO
+    const userID = req.user.id
+    const tokenRole = req.user.role
 
-    if(role === 'admin' || role === 'medico'){ // apenas se o usuario for admin ou medico
+    if (!mongoose.Types.ObjectId.isValid(medico)) {
+                return res.status(400).json({ message: 'ID do medico inválido' });
+            }
+    //APENAS ADMIN E MÉDICO PODEM CRIAR CONSULTAS
+    if(tokenRole === 'admin' || tokenRole === 'medico'){
+    //VERIFICA SE NÃO TEM NENHUM CAMPO VAZIO
     if(!data){
-        return res.status(500).json({ message: 'É preciso de uma data '})
+        return res.status(400).json({ message: 'É preciso de uma data '})
+    }
+    if(!horario){
+        return res.status(400).json({ message: 'É preciso de um horario '})
     }
     if(!medico){
-        return res.status(500).json({ message: 'É preciso de um medico '})
+        return res.status(400).json({ message: 'É preciso de um medico '})
     }
-    if(!especialidade){
-        return res.status(500).json({ message: 'É preciso de uma especialidade '})
+    if(!link){
+        return res.status(400).json({ message: 'É preciso de um link para teleconsulta '})
     }
-
+    //TRATAMENTO DA DATA E HORA
+    const[dia, mes, ano] = data.split('/')
+    const[horas, minutos] = horario.split(':')
+    const dataISO = new Date(`${ano}-${mes}-${dia}T${horas}:${minutos}:00`)
+    //CRIA A CONSULTA
     try{     
-        const consulta = new Consulta ({dataHora: new Date(data), paciente:paciente, medico:medico, especialidade: especialidade})
-
+        const consulta = new Consulta ({dataHora:dataISO, medico:medico, especialidade: especialidade, link: link})
         await consulta.save()
-        logController.registrarLog(userID, 301, 'Criação de de Consulta', `Criado a consulta id: ${consulta._id}, vinculada ao médico ${consulta.medico}, da especialidade: ${consulta.especialidade}, para a data ${consulta.dataHora}`)//cria a consulta no banco de dados
-        return res.status(201).json({ message: 'Consulta criada com sucesso'})
+        //REGISTRA NO LOG
+        logController.registrarLog(userID, 301, 'Criação de de Consulta', `Criado a consulta id: ${consulta._id}, vinculada ao médico ${consulta.medico}, da especialidade: ${consulta.especialidade}, para a data ${consulta.dataHora}`)
+        return res.status(201).json({ message: 'Consulta criada com sucesso', id:consulta._id, medico: consulta.medico, data: consulta.dataHora.toLocaleString('pt-br')})
     }
         
 
@@ -36,47 +49,62 @@ static async criarConsulta(req, res) { // função para criar
         return res.status(500).json({ message: 'Erro ao criar a consulta, ', error:err.message })
     }
     }
-    return res.status(500).json({ message: 'Erro ao criar a consulta, você não tem permissao '})
+    return res.status(403).json({ message: 'Erro ao criar a consulta, você não tem permissao '})
 }
 
 //READ
-static async listarPorStatus(req, res) {
+//FUNÇÃO QUE LISTA AS CONSULTAS POR STATUS
+static async listarConsultas(req, res) {
     const userId = req.user.id;
-    const role = req.user.role;
-    const filtro = req.params.filtro; // pode ser 'todas' ou um id
+    const tokenRole = req.user.role;
+    let filtro = req.query.filtro;
+    //SE NAO FOR PASSADO FILTRO, RETORNA ERRO
+     if (!filtro || filtro.trim() === '') {
+        filtro = 'todas'
+    } else {
+        filtro = filtro.trim().toLowerCase();
+    }
 
     try {
         let consultas = [];
-
+        //FILTRO TODAS RETORNA TODAS AS CONSULTAS DO BANCO DE DADOS
         if (filtro === 'todas'){
-            
-            if (role === 'admin' || role === 'medico') {//admin e doctor pode ver todas
-                consultas = await Consulta.find({});
+            //ADMIN, MÉDICO E ATENDENTE PODEM VER CONSULTAS DE TODOS OS USUARIOS
+            if (tokenRole === 'admin' || tokenRole === 'medico' || tokenRole === 'atendente') {
+                consultas = await Consulta.find({}).select('_id dataHora medico especialidade status link paciente');
                 return res.status(200).json(consultas);
+                //SE FOR PACIENTE OU OUTRO TIPO DE ROLE, VÊ APENAS AS CONSULTAS VINCULADAS AO SEU ID
             } else {            
-                consultas = await Consulta.find({ paciente: userId });//user ve apenas a dele
+                consultas = await Consulta.find({ paciente: userId }).select('_id dataHora medico especialidade status link paciente');
+                return res.status(200).json(consultas);
             }
         }
-
-        if (filtro === 'livre' || filtro ==='agendado' || filtro === 'concluido') {
-            if (role === 'admin' || role === 'medico') {//admin e doctor pode ver todas
-                
-                consultas = await Consulta.find({status:filtro});
+        //SE TIVER ALGUM DESSES FILTROS, RETORNA APENAS AS QUE POSSUEM O STATUS ESCOLHIDO
+        if (filtro ==='agendada' || filtro === 'concluido') {
+            //ADMIN, MÉDICO E ATENDENTE PODEM VER CONSULTAS DE TODOS OS USUARIOS
+            if (tokenRole === 'admin' || tokenRole === 'medico' || tokenRole === 'atendente') {//admin e doctor pode ver todas
+                consultas = await Consulta.find({status:filtro}).select('_id dataHora medico especialidade status link paciente');
+                return res.status(200).json(consultas);
             } else {
-                
-                consultas = await Consulta.find({ paciente: userId, status:filtro });//user ve apenas a dele
+                //SE FOR PACIENTE OU OUTRO TIPO DE ROLE, VÊ APENAS AS CONSULTAS VINCULADAS AO SEU ID
+                consultas = await Consulta.find({ paciente: userId, status:filtro }).select('_id dataHora medico especialidade status link paciente');
+                return res.status(200).json(consultas);
             }
-        }if (!consultas || consultas.length === 0) {
+        }
+        //SE O FILTRO FOR "LIVRE", QUALQUER UM PODE VER
+        if (filtro === 'livre') {
+                consultas = await Consulta.find({status:filtro}).select('_id dataHora medico especialidade status link paciente');
+                return res.status(200).json(consultas);
+        }
+        if (!consultas || consultas.length === 0) {
             return res.status(404).json({ message: 'Nenhuma consulta encontrada.' });
         }       
-        
         else{
             return res.status(404).json({ message: 'Nenhuma consulta encontrada.' });
         }
             
     } catch (error) {
-        console.error('Erro ao listar consultas:', error);
-        return res.status(500).json({ message: 'Erro ao listar consultas.', error: error.message });
+        return res.status(500).json({ message: 'Ocorreu um erro ao listar consultas.', error: error.message });
     }
 
     
@@ -84,11 +112,16 @@ static async listarPorStatus(req, res) {
 }
 
 //UPDATE
-static async agendarConsulta(req, res){//faz o agendamento da consulta
+//FAZ O AGENDAMENTO DA CONSULTA
+static async agendarConsulta(req, res){
     const idConsulta = req.body.idConsulta
-    const idPaciente = req.body.idPaciente//recebe o user apos validação do token
-    const userId = req.user.id//recebe o user apos validação do token
+    const idPaciente = req.body.idPaciente
+    const userId = req.user.id
     const tokenRole = req.user.role
+    //VERIFICA SE O BODY POSSUI VALORES
+    if (!req.body || Object.keys(req.body).length === 0) {
+        return res.status(400).json({ message: 'Requisição sem corpo ou corpo vazio' });
+    }
 
     if(!idConsulta){
         return res.json({message: 'É necessario um id da consulta'})
@@ -97,24 +130,28 @@ static async agendarConsulta(req, res){//faz o agendamento da consulta
     if(!idPaciente){
         return res.json({message: 'É necessario um id do paciente'})
     }
-    //Verificações
-    if(String(idPaciente) === String(userId) || tokenRole === 'admin' || tokenRole ==='medico' || tokenRole ==='atendente'){
+    console.log(userId)
+    //VERIFICAÇÕES, PACIENTE PODE AGENDAR PARA ELE MESMO, ADMIN E ATENDENTE PODE AGENDAR PARA OUTROS USUARIOS
+    if(String(idPaciente) === String(userId) || tokenRole === 'admin' || tokenRole ==='atendente'){
         try{
-    const consulta = await Consulta.findById(idConsulta)// encontra a consulta pelo id
+            //ENCONTRA A CONSULTA PELO ID
+            const consulta = await Consulta.findById(idConsulta)
     if (!consulta) {
       return res.status(404).json({ message: 'Consulta não encontrada.' });
     }
-    if(consulta.status != 'livre'){//se não estiver livre, aponta que ela não está disponivel
+    //SE A CONSULTA NAO ESTIVER LIVRE, RETORNA UM ERRO
+    if(consulta.status != 'livre'){
         return res.status(409).json({message: 'Essa consulta não está disponivel'})
     }
-    //Agendamento da consulta
-        consulta.status = 'agendado'//muda o status para agendado
+    //EFETUA O AGENDAMENTO DA CONSULTA
+        consulta.status = 'agendada'//muda o status para agendado
         consulta.paciente = idPaciente//vincula o id do paciente na consulta
         await consulta.save();
+        //REGISTRA NO LOG
         logController.registrarLog(idPaciente, 303, "Agendamento de Consulta", `A consulta id:${idConsulta} foi agendada para o usuario com sucesso!`)//salva no log
-        return res.status(201).json({message:"Consulta Agendada com sucesso!"})
+        return res.status(200).json({message:"Consulta Agendada com sucesso!", paciente: consulta.paciente, medico: consulta.medico, data: consulta.dataHora.toLocaleString('pt-br'),})
     }
-    //Tratamento de erro
+    //TRATAMENTO DE ERROS
     catch (err) {
         return res.status(500).json({ message: 'Erro ao agendar consulta.', error: err.message })
             }
@@ -122,54 +159,59 @@ static async agendarConsulta(req, res){//faz o agendamento da consulta
         return res.status(403).json({ message: 'Você não tem permissão para agendar essa consulta.' })
 }
 //UPDATE
-static async cancelarConsulta(req, res){//faz o cancelamento da consulta, tornando-a livre
+//FAZ O CANCELAMENTO DE UMA CONSULTA, TORNANDO O SEU STATUS LIVRE
+static async cancelarConsulta(req, res){
     const idConsulta = req.params.idConsulta
-    const userId = req.user.id//recebe o user apos validação do token
+    const userId = req.user.id
     const tokenRole = req.user.role
-
-
+    //VERIFICA SE O BODY POSSUI VALORES
+    if (!mongoose.Types.ObjectId.isValid(idConsulta)) {
+                return res.status(400).json({ message: 'ID da Consulta inválido' });
+            }
     if(!idConsulta){
-        return res.json({message: 'É necessario um id da consulta'})
+        return res.status(400).json({message: 'É necessario um id da consulta'})
     }
-
     if(!userId){
-        return res.json({message: 'É necessario um id do paciente'})
+        return res.status(400).json({message: 'É necessario um id do paciente'})
     }
-
     try {
-    const consulta = await Consulta.findById(idConsulta)// encontra a consulta pelo id
-    if(consulta.status == 'livre'){//se estiver livre, aponta que ela está disponivel
-        return res.json({message: 'Essa consulta já está livre'})
+        //ENCONTRA A CONSULTA PELO ID
+        const consulta = await Consulta.findById(idConsulta)
+        //SE ESTIVER LIVRE, APONTA QUE JÁ ESTÁ LIVRE
+    if(consulta.status == 'livre'){
+        return res.status(409).json({message: 'Essa consulta já está disponivel'})
     }
-    if(consulta.paciente?.equals(userId) || tokenRole === 'admin' || tokenRole ==='medico' || tokenRole ==='atendente'){// admin, paciente, medico e atendente pode cancelar a consulta
-        consulta.status = 'livre'//muda o status para livre
-        consulta.paciente = null //remove o paciente
-
-    await consulta.save();
-    logController.registrarLog(userId, 304, "Cancelamento de Consulta", `A consulta id:${idConsulta} foi cancelada com sucesso!`)//salva no log
-    res.status(201).json({message:"Consulta cancelada com sucesso!"})
-    return
+    //SE O PACIENTE FOR O MESMO QUE O DA CONSULTA, FOR ADMIN OU ATENDENTE, PODE CANCELAR
+    if(consulta.paciente?.equals(userId) || tokenRole === 'admin' || tokenRole ==='medico' || tokenRole ==='atendente'){
+        consulta.status = 'livre'
+        consulta.paciente = null
+        await consulta.save();
+        //REGISTRA NO LOG
+        logController.registrarLog(userId, 304, "Cancelamento de Consulta", `A consulta id:${idConsulta} foi cancelada com sucesso!`)
+        return res.status(200).json({message:"Consulta cancelada com sucesso!"})
     }else{
-        return res.status(201).json({message:"Você não possui permissao para cancelar a consulta de outro paciente!"})
+        return res.status(403).json({message:"Você não possui permissao para cancelar a consulta de outro paciente!"})
     }
 }catch(err){
-    return res.status(500).json({message:'Ocorreu um erro: ', error:err.message})
+    return res.status(500).json({message:'Ocorreu um erro ao cancelar a consulta: ', error:err.message})
 }
         
 }
 
 //DELETE
+//DELETA UMA CONSULTA EXISTENTE
 static async deletarConsulta(req,res){
         const idConsulta = req.params.id
         const role = req.user.role
 
         try{
-                    
-            if (role ==='admin' || role ==='medico'){//só deleta se for admin ou medico
+            //APENAS ADMIN E MEDICO PODEM DELETAR UMA CONSULTA
+            if (role ==='admin' || role ==='medico'){
                 const consulta = await Consulta.findByIdAndDelete(idConsulta)
                 if(!consulta){
                     return res.status(404).json({message: "Consulta não encontrada"})
                 }
+                //REGISTRA NO LOG
                 await logController.registrarLog(req.user.id, 305, 'Exclusão de Consulta', `Consulta ${idConsulta} excluida com sucesso`)
                 return res.status(200).json({message:'Consulta deletada com sucesso'})
             }
@@ -177,7 +219,7 @@ static async deletarConsulta(req,res){
 
 
         }catch(err){
-            return res.status(500).json({message:'Ocorreu um erro: ', error:err.message})
+            return res.status(500).json({message:'Ocorreu um erro ao deletar a consulta: ', error:err.message})
         }
     }
 }
