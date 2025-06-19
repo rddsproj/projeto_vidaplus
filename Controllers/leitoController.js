@@ -31,7 +31,7 @@ static async criarLeito(req, res) { // função para criar
 
     catch(err){
         console.log(`Houve um erro: ${err}`)
-        return res.status(500).json({ message: 'Erro ao criar a consulta, error: err '})
+        return res.status(500).json({ message: 'Erro ao criar a consulta, ', error: err.message})
     }
     }
     return res.status(500).json({ message: 'Erro ao criar a consulta, você não tem permissao '})
@@ -80,7 +80,7 @@ static async deletarLeito(req,res){
 
 
         }catch(err){
-            return res.status(500).json({message:'Ocorreu um erro: ', err})
+            return res.status(500).json({message:'Ocorreu um erro: ', error: err.message})
         }
     }
 

@@ -35,11 +35,10 @@ static async criarReceita(req, res) { // função para criar
         
 
     catch(err){
-        console.log(`Houve um erro: ${err}`)
-        res.status(500).json({ message: 'Erro ao criar a receita, error: ', err })
+        res.status(500).json({ message: 'Erro ao criar a receita, error: ', error: err.message })
     }
     }
-    res.status(500).json({ message: 'Você não tem permissao para criar uma receita'})
+    return res.status(500).json({ message: 'Você não tem permissao para criar uma receita'})
 }
 //READ
 static async listarReceita(req, res){//lista os dados do usuario

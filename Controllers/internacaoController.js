@@ -57,7 +57,7 @@ static async cadastrarInternacao(req, res) { // função para criar
 
     catch(err){
         console.log(`Houve um erro: ${err}`)
-        res.status(500).json({ message: 'Erro ao criar a internacao, error: ', err })
+        res.status(500).json({ message: 'Erro ao criar a internacao, error: ', error: err.message })
     }
     }
     res.status(500).json({ message: 'Você não tem permissao para criar uma internacao'})
@@ -128,7 +128,7 @@ static async listarInternacao(req, res){//lista os dados do usuario
 
     catch(err){
         console.log(`Houve um erro: ${err}`)
-        res.status(500).json({ message: 'Erro ao dar alta na internacao, error: ', err })
+        res.status(500).json({ message: 'Erro ao dar alta na internacao, error: ', error: err.message })
     }
     }
     res.status(500).json({ message: 'Você não tem permissao para dar alta em uma'})

@@ -33,7 +33,7 @@ static async registrarLog(usuario, cod, acao, descricao) {
         return
     }       
     catch(err){
-        console.log(`Houve um erro: ${err}`)
+        console.log(`Houve um erro: ${err.message}`)
         return
     }
 }

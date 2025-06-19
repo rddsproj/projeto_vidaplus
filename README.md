@@ -6,11 +6,11 @@
 
 ### Clone o repositorio
 ```bash
-git clone https://github.com/rddsproj/Projeto-Vidaplus.git
+git clone https://github.com/rddsproj/projeto_vidaplus.git
 ```
 ### Acesse a pasta do projeto
 ```bash
-cd Projeto-Vidaplus
+cd projeto-vidaplus
 ```
 ### Configure o arquivo .env com a chave secreta e a URI do mongoDB
 Crie um arquivo .env na raiz do projeto com o seguinte conteudo:

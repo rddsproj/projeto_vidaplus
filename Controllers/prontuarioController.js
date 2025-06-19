@@ -35,11 +35,10 @@ static async criarProntuario(req, res) { // função para criar
         
 
     catch(err){
-        console.log(`Houve um erro: ${err}`)
-        res.status(500).json({ message: 'Erro ao criar o prontuario, error: err '})
+        return res.status(500).json({ message: 'Erro ao criar o prontuario ', error: err.message})
     }
     }
-    res.status(500).json({ message: 'Você não tem permissao para criar um prontuario'})
+    return res.status(500).json({ message: 'Você não tem permissao para criar um prontuario'})
 }
 //READ
 static async listarProntuario(req, res){//lista os dados do usuario

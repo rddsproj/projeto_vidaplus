@@ -6,135 +6,156 @@ const logController = require('../Controllers/logController')
 module.exports = class userController {
 
         //CREATE
-    static async criarUsuario(req, res) { // função para criar o usuario, como padrão, ele cria os usuarios com a role = user
-        if (!req.body || Object.keys(req.body).length === 0) {//trata para a aplicação não crashar caso o corpo esteja vazio
+        //CRIA UM NOVO USUARIO
+    static async criarUsuario(req, res) {
+        //VERIFICA SE O CORPO ESTÁ VAZIO
+        if (!req.body || Object.keys(req.body).length === 0) {
             return res.status(400).json({ message: 'Requisição sem corpo ou corpo vazio' });
         }
         const tokenRole = req.user.role
-
-        if(tokenRole !== 'admin'){
-            return res.status(403).json({message:'Acesso negado, apenas admin pode criar usuarios'})
-        }
-        const {nome, sobrenome, cpf, dataNascimento, email, telefone, senha, endereco} = req.body
-        if (!req.body.role?.trim()) {
-        delete req.body.role; // Remove se for "" ou apenas espaços
-        }
-
+        //PARAMETROS DO CADASTRO
+        const {nome, sobrenome, cpf, dataNascimento, telefone, senha, endereco} = req.body
+        const email = req.body.email?.trim().toLowerCase();
         let role = req.body.role;
-        if (role) {
-
-            if (['admin', 'doctor', 'user'].includes(role.toLowerCase())) {
+        //VERIFICAÇÃO DE ROLE
+        if(tokenRole !== 'admin' && tokenRole !== 'atendente'){
+            return res.status(403).json({message:'Acesso negado, apenas admin e atendente podem criar usuarios.'})
+        }
+        //VERIFICAÇÃO DOS PARAMETROS
+        if (!nome || !sobrenome || !cpf || !dataNascimento || !email || !telefone || !senha || !endereco || !role) {
+            return res.status(400).json({ message: 'Todos os campos são obrigatórios.' })
+            
+        }
+        //VERIFICAÇÃO DE ROLE
+            if (['admin', 'paciente', 'medico', 'atendente', 'enfermeiro'].includes(role.toLowerCase())) {
                 role = role.toLowerCase();
             } else {
-                return res.status(400).json({message:'Role não reconhecida, use: admin, doctor ou user'})
+                return res.status(400).json({message:'Role não reconhecida, use: admin, paciente, medico, atendente, enfermeiro'})
             }
-        }
-
-        if (!nome || !sobrenome || !cpf || !dataNascimento || !email || !telefone || !senha || !endereco) {
-            return res.status(400).json({ message: 'Todos os campos são obrigatórios.' })
-
-        }
-
+        //CADASTRO DO USUARIO
         try{
             const verificarUsuario = await User.findOne({email})
             if (verificarUsuario){
-                return res.status(400).json({message:'Este email já está em uso'})
+                return res.status(409).json({message:'Este email já está em uso'})
             }
-            const senhaCriptografada = await bcrypt.hash(senha, saltRounds) //criptografa a senha
+            //CRIPTOGRAFA A SENHA UTILIZANDO O BCRYPT
+            const senhaCriptografada = await bcrypt.hash(senha, saltRounds)
             const user = new User ({nome, sobrenome, cpf, dataNascimento: new Date (dataNascimento), email, telefone, senha: senhaCriptografada, endereco, role })
             await user.save()
             console.log(`Usuário ${nome} criado com sucesso!`)
             await logController.registrarLog(user._id, 201, 'Criacao de Usuario', `Usuario ${user.id} criado com sucesso`)
             return res.status(201).json({ message: 'Usuário criado com sucesso', user:{id: user._id, nome: user.nome, role:user.role} })
         }catch(err){
-            return res.status(500).json({ message: 'Erro ao criar usuário', error: err })
+            return res.status(500).json({ message: 'Erro ao criar usuário', error: err.message })
         }
     }
 
     //READ
-    static async listaUsuario(req, res){//lista os dados do usuario
+    //LISTA OS DADOS DO USUARIO
+    static async listaUsuario(req, res){
         const idUsuario = req.user.id
         const idPesquisa = req.params.id
         const role = req.user.role
 
-    
-        if(role ==='admin' || idUsuario === idPesquisa){ //se for admin ou o proprio usuario
+        //VERIFICA SE É ADMIN OU O PRORIO USUARIO
+        if(role ==='admin' || idUsuario === idPesquisa){
             try{
-                const user = await User.findById(idPesquisa)//busca o usuario pelo id
-        
-                if (!user){ //se não encontrar o usuario, retorna um erro
+                //BUSCA O USUARIO PELA ID
+                const user = await User.findById(idPesquisa)
+                //SE NÃO ENCONTRAR O USUARIO, RETORNA UM ERRO
+                if (!user){
                     return res.status(404).json({message: 'Usuario não encontrado'})
                 }
-                console.log(user.nome)
+                //RETORNA OS DADOS DO USUARIO
                 return res.status(200).json({nome: user.nome, email: user.email, role: user.role}) //retorna os dados do usuario
         
                 
             }catch(err){
                 return res.status(500).json({message:'Houve um erro:', error:err.message})
             }
+            //NEGA O ACESSO SE NÃO FOR ADMIN OU O PROPRIO USUARIO
         }else{
             return res.status(403).json({message:'Acesso negado'})
         }
     }
 
     //UPDATE
+    //EDITA OS DADOS DE UM USUARIO
     static async editarUsuario(req,res){
         const idUsuario = req.params.id
-        const {nome,sobrenome, email, telefone, role} = req.body || {}
+        const {nome,sobrenome, email, telefone, endereco, role} = req.body || {}
         const tokenRole = req.user.role
-
-        if(!nome && !sobrenome && !email && !telefone &&!role){
+        //SE NAO INFORMAR NENHUM DADO NO BODY, RETORNA UM ERRO
+        if(!nome && !sobrenome && !email && !telefone && !endereco &&!role){
             return res.status(400).json({message:'Nenhum dado enviado para atualização'})
         }
 
-        if (tokenRole !== 'admin') {
+        //APENAS ADMIN E ATENDENTE PODEM ALTERAR OS DADOS DE USUARIOS
+        if (tokenRole !== 'admin' && tokenRole !== 'atendente') {
+        //CASO NÃO TENHA PERRMISSAO, RETORNA ERRO
         return res.status(403).json({ message: 'Você não tem permissão para editar usuários.' });
     }
         try{
-                    
+                //BUSCA O USUARIO PELO ID
                 const user = await User.findById(idUsuario)
+                //SE NÃO ENCONTRAR O USUARIO, RETORNA UM ERRO
                 if(!user){
                     return res.status(404).json({message: "Usuario não encontrado"})
                 }
+                //DEFINE O NOVO VALOR PARA CADA PARAMETRO ENVIADO
                 if(nome) {user.nome = nome}
                 if(sobrenome) {user.sobrenome = sobrenome}
+                if(telefone) {user.telefone = telefone}
+                if(endereco) {user.endereco = endereco}
+                if(role) {
+                    //SE HOUVER ROLE, VERIFICA SE ESTÁ CORRETO
+                    if (['admin', 'paciente', 'medico', 'atendente', 'enfermeiro'].includes(role.toLowerCase())) {
+                        user.role = role.toLowerCase();
+                    } else {
+                return res.status(400).json({message:'Role não reconhecida, use: admin, paciente, medico, atendente, enfermeiro'})
+                    }
+                }
+                //EM CASO DE ALTERAÇÃO DE EMAIL, VERIFICA SE NÃO ESTÁ EM USO
                 if(email) {
                     const verificarUsuario = await User.findOne({email})
                     if (verificarUsuario){
                         return res.status(400).json({message:'Este email já está em uso'})
                 }else{user.email = email}}
-                if(telefone) {user.telefone = telefone}
-                if(role) {user.role = role}
-
+                //SALVA OS DADOS DO USUARIO
                 await user.save()
                 await logController.registrarLog(req.user.id, 202, 'Ediçao de Usuario', `Usuario ${idUsuario} editado com sucesso`)
-                return res.status(200).json({message:'Usuario atualizado com sucesso'})
+                //return res.status(200).json({message:'Usuario atualizado com sucesso'})
+                return res.status(200).json({ message: 'Usuário atualizado com sucesso', user:{id: user._id, nome: user.nome, sobrenome: user.sobrenome, telefone: user.telefone, endereco: user.endereco, role:user.role} })
 
         }catch(err){
-            return res.status(500).json({message:'Ocorreu um erro: ', err})
+            return res.status(500).json({message:'Ocorreu um erro: ', error:err.message})
         }
     }
 
     //DELETE
+    //DELETA UM USUARIO A PARTIR DO SEU ID
     static async deletarUsuario(req,res){
         const idUsuario = req.params.id
-        const role = req.user.role
+        const tokenRole = req.user.role
 
         try{
-                    
-            if (role ==='admin'){
+            //APENAS ADMIN E ATENDENTE PODEM EXCLUIR USUARIOS
+            if (tokenRole ==='admin' || tokenRole === 'atendente'){
+                //BUSCA E FAZ A EXCLUSAO DO USUARIO
                 const user = await User.findByIdAndDelete(idUsuario)
+                //CASO NÃO ENCONTRE O USUARIO, RETORNA UM ERRO
                 if(!user){
                     return res.status(404).json({message: "Usuario não encontrado"})
                 }
                 await logController.registrarLog(req.user.id, 203, 'Exclusão de Usuario', `Usuario ${idUsuario} excluido com sucesso`)
                 return res.status(200).json({message:'Usuario deletado com sucesso'})
-            }
+            }   
+                //RETORNA UM ERRO CASO O USUARIO NÃO POSSUA PERMISSÃO
                 return res.status(403).json({message:'Você não tem permissao para deletar usuarios'})
 
 
         }catch(err){
-            return res.status(500).json({message:'Ocorreu um erro: ', err})
+            return res.status(500).json({message:'Ocorreu um erro: ', error:err.message})
         }
     }
 }

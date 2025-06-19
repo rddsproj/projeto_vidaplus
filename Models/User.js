@@ -39,7 +39,7 @@ const User = mongoose.model(
     },
     role: {
       type: String,
-      enum:["user", "admin", "doctor"],
+      enum: ['admin', 'paciente', 'medico', 'atendente', 'enfermeiro'],
       default: 'user',
       required: true,
     }
