@@ -4,10 +4,10 @@ const userController = require('../Controllers/userController')
 const {authToken, verificarToken} = require('../middlewares/authMiddleware')
 
 
-router.post('/criar', authToken, userController.criarUsuario)
+router.post('/criar', userController.criarUsuario)
 router.patch('/editar/:id', authToken, userController.editarUsuario)
 router.delete('/deletar/:id', authToken, userController.deletarUsuario)
-router.get('/listar/:id', authToken, userController.listaUsuario)
+router.get('/detalhe/:id', authToken, userController.detalheUsuario)
 
 
 module.exports = router

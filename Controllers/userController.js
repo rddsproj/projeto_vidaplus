@@ -2,6 +2,8 @@ const User = require('../Models/User')
 const bcrypt = require('bcrypt')
 const saltRounds = 10;
 const logController = require('../Controllers/logController')
+const mongoose = require('mongoose');
+
 
 module.exports = class userController {
 
@@ -12,53 +14,44 @@ module.exports = class userController {
         if (!req.body || Object.keys(req.body).length === 0) {
             return res.status(400).json({ message: 'Requisição sem corpo ou corpo vazio' });
         }
-        const tokenRole = req.user.role
         //PARAMETROS DO CADASTRO
-        const {nome, sobrenome, cpf, dataNascimento, telefone, senha, endereco} = req.body
+        const {nome, sobrenome, cpf, dataNascimento, telefone, senha, endereco} = req.body;
         const email = req.body.email?.trim().toLowerCase();
-        let role = req.body.role;
-        //VERIFICAÇÃO DE ROLE
-        if(tokenRole !== 'admin' && tokenRole !== 'atendente'){
-            return res.status(403).json({message:'Acesso negado, apenas admin e atendente podem criar usuarios.'})
-        }
         //VERIFICAÇÃO DOS PARAMETROS
-        if (!nome || !sobrenome || !cpf || !dataNascimento || !email || !telefone || !senha || !endereco || !role) {
-            return res.status(400).json({ message: 'Todos os campos são obrigatórios.' })
-            
+        if (!nome || !sobrenome || !cpf || !dataNascimento || !email || !telefone || !senha || !endereco) {
+            return res.status(400).json({ message: 'Todos os campos são obrigatórios.' });
         }
-        //VERIFICAÇÃO DE ROLE
-            if (['admin', 'paciente', 'medico', 'atendente', 'enfermeiro'].includes(role.toLowerCase())) {
-                role = role.toLowerCase();
-            } else {
-                return res.status(400).json({message:'Role não reconhecida, use: admin, paciente, medico, atendente, enfermeiro'})
-            }
         //CADASTRO DO USUARIO
         try{
-            const verificarUsuario = await User.findOne({email})
+            const verificarUsuario = await User.findOne({email});
             if (verificarUsuario){
-                return res.status(409).json({message:'Este email já está em uso'})
+                return res.status(409).json({message:'Este email já está em uso'});
             }
             //CRIPTOGRAFA A SENHA UTILIZANDO O BCRYPT
-            const senhaCriptografada = await bcrypt.hash(senha, saltRounds)
-            const user = new User ({nome, sobrenome, cpf, dataNascimento: new Date (dataNascimento), email, telefone, senha: senhaCriptografada, endereco, role })
-            await user.save()
-            console.log(`Usuário ${nome} criado com sucesso!`)
-            await logController.registrarLog(user._id, 201, 'Criacao de Usuario', `Usuario ${user.id} criado com sucesso`)
-            return res.status(201).json({ message: 'Usuário criado com sucesso', user:{id: user._id, nome: user.nome, role:user.role} })
+            const senhaCriptografada = await bcrypt.hash(senha, saltRounds);
+            //CRIA TODOS OS USUARIO COM A ROLE USER
+            const user = new User ({nome, sobrenome, cpf, dataNascimento: new Date (dataNascimento), email, telefone, senha: senhaCriptografada, endereco, role: 'paciente' });
+            await user.save();
+            await logController.registrarLog(user._id, 201, 'Criacao de Usuario', `Usuario ${user.id} criado com sucesso`);
+            return res.status(201).json({ message: 'Usuário criado com sucesso', user:{id: user._id, nome: user.nome, role:user.role} });
         }catch(err){
-            return res.status(500).json({ message: 'Erro ao criar usuário', error: err.message })
+            return res.status(500).json({ message: 'Erro ao criar usuário', error: err.message });
         }
     }
 
     //READ
     //LISTA OS DADOS DO USUARIO
-    static async listaUsuario(req, res){
+    static async detalheUsuario(req, res){
         const idUsuario = req.user.id
         const idPesquisa = req.params.id
-        const role = req.user.role
+        const tokenRole = req.user.role
+        //Verifica se o ID é valido
+        if (!mongoose.Types.ObjectId.isValid(idPesquisa)) {
+                    return res.status(400).json({ message: 'ID do usuário inválido' });
+                }
 
         //VERIFICA SE É ADMIN OU O PRORIO USUARIO
-        if(role ==='admin' || idUsuario === idPesquisa){
+        if(tokenRole ==='admin' || idUsuario === idPesquisa){
             try{
                 //BUSCA O USUARIO PELA ID
                 const user = await User.findById(idPesquisa)
@@ -67,15 +60,15 @@ module.exports = class userController {
                     return res.status(404).json({message: 'Usuario não encontrado'})
                 }
                 //RETORNA OS DADOS DO USUARIO
-                return res.status(200).json({nome: user.nome, email: user.email, role: user.role}) //retorna os dados do usuario
+                return res.status(200).json({nome: user.nome, sobrenome: user.sobrenome, dataNascimento: user.dataNascimento.toLocaleDateString('pt-br'), email: user.email, telefone: user.telefone, endereco: user.endereco, role: user.role}) 
         
                 
             }catch(err){
-                return res.status(500).json({message:'Houve um erro:', error:err.message})
+                return res.status(500).json({message:'Erro ao detalhar o usuário:', error:err.message})
             }
             //NEGA O ACESSO SE NÃO FOR ADMIN OU O PROPRIO USUARIO
         }else{
-            return res.status(403).json({message:'Acesso negado'})
+            return res.status(403).json({message:'Acesso negado.'})
         }
     }
 
@@ -128,7 +121,7 @@ module.exports = class userController {
                 return res.status(200).json({ message: 'Usuário atualizado com sucesso', user:{id: user._id, nome: user.nome, sobrenome: user.sobrenome, telefone: user.telefone, endereco: user.endereco, role:user.role} })
 
         }catch(err){
-            return res.status(500).json({message:'Ocorreu um erro: ', error:err.message})
+            return res.status(500).json({message:'Erro ao editar o usuário: ', error:err.message})
         }
     }
 
@@ -137,7 +130,9 @@ module.exports = class userController {
     static async deletarUsuario(req,res){
         const idUsuario = req.params.id
         const tokenRole = req.user.role
-
+        if (!mongoose.Types.ObjectId.isValid(idUsuario)) {
+                    return res.status(400).json({ message: 'ID do usuário inválido' });
+                }
         try{
             //APENAS ADMIN E ATENDENTE PODEM EXCLUIR USUARIOS
             if (tokenRole ==='admin' || tokenRole === 'atendente'){
@@ -151,11 +146,11 @@ module.exports = class userController {
                 return res.status(200).json({message:'Usuario deletado com sucesso'})
             }   
                 //RETORNA UM ERRO CASO O USUARIO NÃO POSSUA PERMISSÃO
-                return res.status(403).json({message:'Você não tem permissao para deletar usuarios'})
+                return res.status(403).json({message:'Você não tem permissao para deletar usuários.'})
 
 
         }catch(err){
-            return res.status(500).json({message:'Ocorreu um erro: ', error:err.message})
+            return res.status(500).json({message:'Erro ao deletar o usuário. ', error:err.message})
         }
     }
 }

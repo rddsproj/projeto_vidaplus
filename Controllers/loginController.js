@@ -6,28 +6,30 @@ require('dotenv').config()
 
 
 module.exports = class loginController{
-    
-    static async login (req, res){//sistema de login
-        if (!req.body || Object.keys(req.body).length === 0) {//trata para a aplicação não crashar caso o corpo esteja vazio
-        return res.status(400).json({ message: 'Requisição sem corpo ou corpo vazio' });
+    //FUNÇÃO DE LOGIN
+    static async login (req, res){
+        //VERIFICA SE O CORPO DA REQUISIÇÃO POSSUI PARAMETROS
+        if (!req.body || Object.keys(req.body).length === 0) {
+        return res.status(400).json({ message: 'Requisição sem corpo ou corpo vazio.' });
     }
-
+        //DEFINE AS VARIAVEIS
         const email = req.body.email
         const senha = req.body.senha
         try{
-        const user = await User.findOne({email:email})//busca o usuario pelo email
-
-        if (!user){ //se não encontrar o usuario, retorna um erro
-            return res.status(404).json({message: 'Usuario não encontrado'})
+        //BUSCA O USUARIO PELO EMAIL
+        const user = await User.findOne({email:email});
+        //SE NÃO ENCONTRAR USUARIO, RETORNA UM ERRO
+        if (!user){ 
+            return res.status(404).json({message: 'Usuario não encontrado.'});
         }
-        const compararSenha = await (bcrypt.compare(senha, user.senha))//compara a senha com o banco de dados, se estiver incorreta, retorna um erro
-        console.log(compararSenha)
+        //COMPARA A SENHA DISPONIBILIZADA COM A SENHA DO BANCO DE DADOS, USANDO O BCRYPT
+        const compararSenha = await (bcrypt.compare(senha, user.senha));
+        //SE A SENHA ESTIVER INCORRETA, RETORNA UM ERRO
         if (!compararSenha){
-            //return res.status(404).json({message: 'Senha incorreta'})
-            return res.render('login/login', {error: "Senha Incorreta"})
+            return res.status(401).json({message: 'Senha incorreta'});
         }
-        
-        const token = jwt.sign({//gera o token, com duração de 1 dia
+        //GERA UM TOKEN JWT COM DURAÇÃO DE 1 DIA
+        const token = jwt.sign({
             id: user._id,
             nome: user.nome,
             role:user.role
@@ -35,19 +37,21 @@ module.exports = class loginController{
         process.env.JWT_SECRET,
         {expiresIn:'1d'}
         )
-        logController.registrarLog(user._id, '101', 'Login', `Usuario ${user.id} logado com sucesso`)
-        res.status(200).json({
+        //REGISTRA NO LOG
+        logController.registrarLog(user._id, 101, 'Login', `Usuario ${user.id} logado com sucesso`);
+        return res.status(200).json({
             message: 'Login bem-sucedido',
             token,
             user: {
                 id: user._id,
                 nome: user.nome,
-                email: user.email
+                email: user.email,
+                role: user.role
             }
         
         })
     }catch(err){
-        res.status(500).json({message:'Houve um erro no login', error:err.message})
+        return res.status(500).json({message:'Houve um erro no login.', error:err.message});
     }}
 
 }
