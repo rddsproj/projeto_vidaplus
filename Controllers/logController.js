@@ -15,7 +15,7 @@ module.exports = class logController {
     305 - Exclusão de Consulta
     306 - conclusão de Consulta
     401 - Criação de Prontuario
-    402 - Alteração de Prontuario
+    402 - Visualização de Prontuario
     403 - Exclusão de Prontuario
     501 - Criação de Internação
     502 - Alteração de Internação

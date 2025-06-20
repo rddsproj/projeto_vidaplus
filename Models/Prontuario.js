@@ -14,7 +14,19 @@ const Prontuario = mongoose.model(
       ref: 'User',
       required: true,
     },
-    descricao: {
+    anamnese: {
+      type: String,
+      required: true,
+    },
+    hipotese: {
+      type: String,
+      required: true,
+    },
+    conduta: {
+      type: String,
+      required: true,
+    },
+    observacao: {
       type: String,
       required: true,
     },
