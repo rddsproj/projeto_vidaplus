@@ -6,7 +6,7 @@ const leitoController = require('../Controllers/leitoController')
 
 router.post('/criar', authToken, leitoController.criarLeito)
 router.get('/listar', authToken, leitoController.listarLeitos)
-router.delete('/deletar/:idLeito', authToken, leitoController.deletarLeito)
+router.delete('/deletar/:numero', authToken, leitoController.deletarLeito)
 
 
 

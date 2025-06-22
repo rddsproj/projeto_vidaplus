@@ -5,82 +5,110 @@ const mongoose = require('mongoose');
 
 module.exports = class consultaController {
 //CREATE
-static async criarLeito(req, res) { // função para criar 
-    const userID = req.user.id//recebe o user apos validação do token
-    const role = req.user.role
-
-    if(role === 'admin' || role === 'medico'){ // apenas se o usuario for admin ou doctor
-    try{     
-        const ultimoLeito = await Leito.findOne().sort({ numero: -1 }) // busca o ultimo leito criado
-        let novoNumero = 101; // valor inicial dos numeros do leito
-
-        if (ultimoLeito) {//deefine o numero do novo leito
-            novoNumero = parseInt(ultimoLeito.numero) + 1;
-        }
-        
-
-        const novoLeito = new Leito({
-            numero: String(novoNumero),
-            status: 'livre'
-        });
-        await novoLeito.save()
-        logController.registrarLog(userID, 601, 'Criação de Leito', `Criado leito id: ${novoLeito._id}, numero: ${novoLeito.numero}`)//cria o log
-        return res.status(201).json({ message: 'Leito criado com sucesso'})
+//CRIA UM OU VARIOS LEITOS
+static async criarLeito(req, res) {
+    const userID = req.user.id;
+    const role = req.user.role;
+    //APENAS ADMIN PODE CRIAR LEITOS
+    if (role !== 'admin') {
+        return res.status(403).json({ message: 'Apenas administradores podem criar leitos.' });
     }
-        
+
+    let qtd;
+    //VERIFICA SE QTD FOI PASSADO
+    if (req.query.qtd && !isNaN(parseInt(req.query.qtd))) {
+        qtd = parseInt(req.query.qtd);
+    } else {
+        qtd = null;
+    }
+
+    try {
+        const ultimoLeito = await Leito.findOne().sort({ numero: -1 });
+        let novoNumero = ultimoLeito ? parseInt(ultimoLeito.numero) + 1 : 101;
+        //SE HOUVER QUANTIDADE E FOR MAIOR QUE 1, CRIA VARIOS LEITOS DE UMA SÓ VEZ
+        if (qtd && qtd > 1) {
+            const novosLeitos = [];
+
+            for (let i = 0; i < qtd; i++) {
+                novosLeitos.push({ numero: String(novoNumero++), status: 'livre' });
+            }
+            //INSERE VARIOS LEITOS NO BANCO DE DADOS DE UMA VEZ
+            const leitosCriados = await Leito.insertMany(novosLeitos);
+
+            for (const leito of leitosCriados) {
+                await logController.registrarLog(userID, 601, 'Criação de Leito', `Criado leito id: ${leito._id}, número: ${leito.numero}`);
+            }
+
+            return res.status(201).json({ message: `${leitosCriados.length} leito(s) criado(s) com sucesso.` });
+        } else {
+            //CRIA APENAS UM LEITO
+            const leitoUnico = new Leito({ numero: String(novoNumero), status: 'livre' });
+            await leitoUnico.save();
+
+            await logController.registrarLog(userID, 601, 'Criação de Leito', `Criado leito id: ${leitoUnico._id}, número: ${leitoUnico.numero}`);
+
+            return res.status(201).json({ message: 'Leito criado com sucesso' });
+        }
+    }
 
     catch(err){
-        console.log(`Houve um erro: ${err}`)
-        return res.status(500).json({ message: 'Erro ao criar a consulta, ', error: err.message})
+        return res.status(500).json({ message: 'Erro ao criar o leito. ', error: err.message});
     }
-    }
-    return res.status(500).json({ message: 'Erro ao criar a consulta, você não tem permissao '})
+    
 }
 //READ
-static async listarLeitos(req, res){//lista os dados do usuario
-        const tokenRole = req.user.role
-        if(tokenRole ==='admin' || tokenRole === 'doctor'){ 
+//LISTA TODOS OS LEITOS
+static async listarLeitos(req, res){
+        const tokenRole = req.user.role;
+        //APENAS ADMIN, MEDICO E ENFERMEIRO PODEM LISTAR OS LEITOS
+        if(tokenRole ==='admin' || tokenRole === 'medico' || tokenRole ==='enfermeiro'){ 
             try{
                 const leitos = await Leito.find({}, '_id numero  status')
-                                    .populate('paciente', 'nome')//popula com o nome do paciente
+                                    .populate('paciente', 'nome')
+                                    .lean();
                 
-        
-                if (leitos.length === 0){ //se não encontrar nenhum leito retorna um erro
-                    return res.status(404).json({message: 'Nenhum leito encontrado'})
+                //VERIFICA SE EXISTEM LEITOS
+                if (leitos.length === 0){
+                    return res.status(404).json({message: 'Nenhum leito encontrado'});
                 }
-                return res.status(200).json(leitos)
+                //RETORNA TODOS OS LEITOS
+                return res.status(200).json(leitos);
 
             }catch(err){
-                return res.status(500).json({message:'Houve um erro:', error:err.message})
+                return res.status(500).json({message:'Houve um erro ao listar os leitos.', error:err.message});
             }
         }else{
-            return res.status(403).json({message:'Acesso negado'})
+            return res.status(403).json({message:'Acesso negado'});
         }
     }
 //DELETE
 static async deletarLeito(req,res){
-        const idLeito = req.params.idLeito
-        const tokenRole = req.user.role
+        const numero = req.params.numero;
+        const tokenRole = req.user.role;
 
-        if (!mongoose.Types.ObjectId.isValid(idLeito)) {
-                return res.status(400).json({ message: 'ID do Leito inválido' });//verifica de o ID é valido
+        if (isNaN(numero)) {
+                return res.status(400).json({ message: 'Numero do Leito inválido' });
             }
 
         try{
-                    
-            if (tokenRole ==='admin' || tokenRole ==='doctor'){//só deleta se for admin ou doctor
-                const leito = await Leito.findByIdAndDelete(idLeito)
+                //APENAS ADMIN PODE DELETAR UM LEITO
+            if (tokenRole ==='admin' ){
+                const leito = await Leito.findOneAndDelete({numero: numero});
                 if(!leito){
-                    return res.status(404).json({message: "Leito Não encontrado"})
+                    return res.status(404).json({message: "Leito Não encontrado"});
                 }
-                await logController.registrarLog(req.user.id, 305, 'Exclusão de Leito', `Leito ${idLeito} excluido com sucesso`)
-                return res.status(200).json({message:'Leito excluido com sucesso'})
+                if(leito.status === 'ocupado'){
+                    return res.starus(409).json({message:"Leito ocupado, você não pode deletar ele"});
+                }
+                //REGISTA NO LOG
+                await logController.registrarLog(req.user.id, 305, 'Exclusão de Leito', `Leito ${numero} excluido com sucesso`);
+                return res.status(200).json({message:`Leito ${numero} excluido com sucesso`});
             }
-                return res.status(403).json({message:'Você não tem permissao para deletar leitos'})
+                return res.status(403).json({message:'Você não tem permissao para deletar leitos'});
 
 
         }catch(err){
-            return res.status(500).json({message:'Ocorreu um erro: ', error: err.message})
+            return res.status(500).json({message:'Ocorreu um erro ao deletar o leito. ', error: err.message});
         }
     }
 
