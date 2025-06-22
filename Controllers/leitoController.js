@@ -9,7 +9,7 @@ static async criarLeito(req, res) { // função para criar
     const userID = req.user.id//recebe o user apos validação do token
     const role = req.user.role
 
-    if(role === 'admin' || role === 'doctor'){ // apenas se o usuario for admin ou doctor
+    if(role === 'admin' || role === 'medico'){ // apenas se o usuario for admin ou doctor
     try{     
         const ultimoLeito = await Leito.findOne().sort({ numero: -1 }) // busca o ultimo leito criado
         let novoNumero = 101; // valor inicial dos numeros do leito

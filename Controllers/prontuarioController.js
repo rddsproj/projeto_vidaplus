@@ -71,6 +71,7 @@ static async listarProntuario(req, res){
                                                             .select('anamnese hipotese conduta observacao data')
                                                             .populate('medico', 'nome')
                                                             .populate('paciente', 'nome dataNascimento')
+                                                            .sort({ data: -1 })
                                                             .lean();
                 
                 if (prontuarios.length === 0){
