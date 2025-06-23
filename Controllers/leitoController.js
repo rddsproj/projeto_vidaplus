@@ -101,7 +101,7 @@ static async deletarLeito(req,res){
                     return res.starus(409).json({message:"Leito ocupado, você não pode deletar ele"});
                 }
                 //REGISTA NO LOG
-                await logController.registrarLog(req.user.id, 305, 'Exclusão de Leito', `Leito ${numero} excluido com sucesso`);
+                await logController.registrarLog(req.user.id, 602, 'Exclusão de Leito', `Leito ${numero} excluido com sucesso`);
                 return res.status(200).json({message:`Leito ${numero} excluido com sucesso`});
             }
                 return res.status(403).json({message:'Você não tem permissao para deletar leitos'});

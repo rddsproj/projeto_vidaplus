@@ -1,5 +1,5 @@
 const Log = require('../Models/Log')
-
+const mongoose = require('mongoose');
 module.exports = class logController {
 
 /*
@@ -16,13 +16,13 @@ module.exports = class logController {
     306 - conclusão de Consulta
     401 - Criação de Prontuario
     402 - Visualização de Prontuario
-    403 - Exclusão de Prontuario
     501 - Criação de Internação
     502 - Alteração de Internação
     601 - Criação de Leito
-
-    601 - Consultar Log
-    602 - Consultar Log de Usuario
+    602 - Exclusão de Leito
+    701 - Consultar Log
+    702 - Consultar Log de Usuario
+    703 - Consultar Log por Ação
 */
 
 
@@ -41,70 +41,101 @@ static async registrarLog(usuario, cod, acao, descricao) {
 
 static async listarTodos(req, res) {
     const userId = req.user.id;
-    const role = req.user.role;
+    const tokenRole = req.user.role;
+    let logs;
  
     try {
-
-        let logs;
-            if (role === 'admin') {//admin pode ver todos os logs
-            logs = await Log.find({}, {_id:1, usuario:1, acao:1, descricao:1, createdAt:1})//filtra os campos que serao retornados
-                .populate('usuario', 'nome email')
-            logController.registrarLog(userId, 601, "Consultar Log", `O Usuario:${userId} consultou todos os logs`)//salva no log
-        } else {            
-            return res.status(404).json({ message: 'Você não possui permissao.' });//se não for admin não pode ver nenhum log
-        }
+        //APENAS ADMIN PODE VER OS LOGS
+        if (tokenRole === 'admin') {
+        //BUSCA TODOS OS LOGS NO BANCO DE DADOS E FILTRA OS CAMPOS
+            logs = await Log.find({}, {_id:1, usuario:1, cod:1 ,acao:1, descricao:1, data:1})
+                                                        .populate('usuario', 'nome')
+                                                        .lean();
+            logController.registrarLog(userId, 701, "Consultar Log", `O Usuario:${userId} consultou todos os logs`);
+            const qtd = logs.length;
         if (logs.length === 0) {
             return res.status(404).json({ message: 'Nenhum log encontrado.' });
         }
-        return res.status(200).json(logs);
-        } catch (error) {
+        //FORMATA A DATA
+        const logsFormatados = logs.map(log => ({
+            ...log,
+            data: new Date(log.data).toLocaleString('pt-BR'),
+            }));
+        return res.status(200).json({message: `Foram encontrados ${qtd} logs`, logs: logsFormatados});
+         
+        }
+        else {            
+            return res.status(403).json({ message: 'Você não possui permissao.' });
+        }
+    }catch (error) {
             return res.status(500).json({ message: 'Erro ao listar os logs.', error: error.message });
         }
 }
-
-static async listarPorUsuario(req, res) {//retorna todos os logs de um usuario
+//RETORNA OS LOGS DE UM USUARIO ESPECIFICO
+static async listarPorUsuario(req, res) {
     const userId = req.user.id;
-    const role = req.user.role;
+    const tokenRole = req.user.role;
     const filtro = req.params.idUsuario
- 
+    let logs;
+    if (!mongoose.Types.ObjectId.isValid(filtro)) {
+                return res.status(400).json({ message: 'ID de usuario inválido' });
+            }
     try {
-
-        let logs;
-            if (role === 'admin') {//admin pode ver todos os logs
-            logs = await Log.find({usuario: filtro}, {_id:1, usuario:1, acao:1, descricao:1, createdAt:1})//filtra os campos que serao retornados
-                .populate('usuario', 'nome email')
-            logController.registrarLog(userId, 602, "Consultar Log de Usuario", `O Usuario: ${userId} consultou o log do usuario: ${filtro}`)//salva no log
-        } else {            
-            return res.status(404).json({ message: 'Você não possui permissao.' });//se não for admin não pode ver nenhum log
-        }
+     
+        if (tokenRole === 'admin') {
+        logs = await Log.find({usuario: filtro}, {_id:1, usuario:1, cod:1, acao:1, descricao:1, data:1})//filtra os campos que serao retornados
+                                                                    .populate('usuario', 'nome')
+                                                                    .lean();
+        logController.registrarLog(userId, 702, "Consultar Log de Usuario", `O Usuario: ${userId} consultou o log do usuario: ${filtro}`)//salva no log
+        const qtd = logs.length;
         if (logs.length === 0) {
             return res.status(404).json({ message: 'Nenhum log encontrado.' });
         }
-        return res.status(200).json(logs);
-        } catch (error) {
+        //FORMATA A DATA
+        const logsFormatados = logs.map(log => ({
+            ...log,
+            data: new Date(log.data).toLocaleString('pt-BR'),
+            }));
+        return res.status(200).json({message: `Foram encontrados ${qtd} logs`, logs: logsFormatados});
+
+        }else {            
+            return res.status(403).json({ message: 'Você não possui permissao.' });
+        }
+    }catch (error) {
             return res.status(500).json({ message: 'Erro ao listar os logs.', error: error.message });
         }
 }
-
-static async listarPorAcao(req, res) {//retorna todos os logs com determinada acao
+//LISTA OS LOGS POR CODIGO/AÇÃO
+static async listarPorAcao(req, res) {
     const userId = req.user.id;
     const role = req.user.role;
-    const filtro = req.params.acao
- 
+    const filtro = req.params.codigo;
+    let logs;
+    const codigos = [101, 201, 202, 203, 301, 302, 303, 304, 305, 306, 401, 402, 501, 502, 601, 602, 701, 702, 703]
+    if (isNaN(filtro) || !codigos.includes(parseInt(filtro))) {
+                return res.status(400).json({ message: 'Código inválido' });
+            }
     try {
-
-        let logs
-        if (role === 'admin') {//admin pode ver todos os logs
-        logs = await Log.find({cod:filtro}, {_id:1, usuario:1, cod:1, acao:1, descricao:1, createdAt:1})//filtra os campos que serao retornados
-            .populate('usuario', 'nome email')
-        logController.registrarLog(userId, 602, "Consultar Log por Ação", `O Usuario: ${userId} consultou o log da acão: ${filtro}`)//salva no log
-        } else {            
-        return res.status(404).json({ message: 'Você não possui permissao.' });//se não for admin não pode ver nenhum log
-        }
+        //APENAS ADMIN PODE VER OS LOGS
+        if (role === 'admin') {
+        logs = await Log.find({cod:filtro}, {_id:1, usuario:1, cod:1, acao:1, descricao:1, data:1})
+                                                                        .populate('usuario', 'nome')
+                                                                        .lean();
+        const qtd = logs.length;
+        logController.registrarLog(userId, 703, "Consultar Log por Ação", `O Usuario: ${userId} consultou o log da acão: ${filtro}`)
+        
         if (logs.length === 0) {
             return res.status(404).json({ message: 'Nenhum log encontrado.' });
         }
-        return res.status(200).json(logs);
+        //FORMATA A DATA
+        const logsFormatados = logs.map(log => ({
+            ...log,
+            data: new Date(log.data).toLocaleString('pt-BR'),
+            }));
+        return res.status(200).json({message: `Foram encontrados ${qtd} logs`, logs: logsFormatados});
+        }else {            
+            return res.status(404).json({ message: 'Você não possui permissao.' });
+        }
         } catch (error) {
             return res.status(500).json({ message: 'Erro ao listar os logs.', error: error.message });
         }
