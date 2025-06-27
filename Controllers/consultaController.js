@@ -218,7 +218,7 @@ static async finalizarConsulta(req, res){
     if(consulta.status == 'concluida'){
         return res.status(409).json({message: 'Essa consulta já foi finalizada'})
     }
-    //SE O PACIENTE FOR O MESMO QUE O DA CONSULTA, FOR ADMIN OU ATENDENTE, PODE CANCELAR
+    //SE FOR ADMIN OU MEDICO, PODE FINALIZAR
     if(tokenRole === 'admin' || tokenRole ==='medico'){
         consulta.status = 'concluida'
         consulta.paciente = null

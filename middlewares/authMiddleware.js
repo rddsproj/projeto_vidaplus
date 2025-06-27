@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken')
 
-const authToken = (req, res, next) => { //verifica se o token é valido e decodifica ele
+const authToken = (req, res, next) => {
     const authHeader = req.headers['authorization']
     const token = authHeader && authHeader.split(' ')[1]
 
@@ -9,6 +9,7 @@ const authToken = (req, res, next) => { //verifica se o token é valido e decodi
     }
 
     try {
+        // UTILIZA O JWT_SECRET DECLARADO NO ARQUIVO .ENV
         const secret = process.env.JWT_SECRET
         const decoded = jwt.verify(token, secret)
         req.user = decoded
@@ -16,7 +17,6 @@ const authToken = (req, res, next) => { //verifica se o token é valido e decodi
             next()
     } catch (error) {
         res.status(400).json({ message: 'Token inválido' })
-        //console.log(token)
         return
     }
 }

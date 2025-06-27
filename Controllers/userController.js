@@ -76,37 +76,44 @@ module.exports = class userController {
     //EDITA OS DADOS DE UM USUARIO
     static async editarUsuario(req,res){
         const idUsuario = req.params.id
-        const {nome,sobrenome, email, telefone, endereco, role} = req.body || {}
+        const {nome,sobrenome, email, telefone, endereco, role, senha} = req.body || {}
         const tokenRole = req.user.role
         //SE NAO INFORMAR NENHUM DADO NO BODY, RETORNA UM ERRO
-        if(!nome && !sobrenome && !email && !telefone && !endereco &&!role){
+        if(!nome && !sobrenome && !email && !telefone && !endereco &&!role &&!senha){
             return res.status(400).json({message:'Nenhum dado enviado para atualização'})
         }
-
+        
+        
         //APENAS ADMIN E ATENDENTE PODEM ALTERAR OS DADOS DE USUARIOS
         if (tokenRole !== 'admin' && tokenRole !== 'atendente') {
-        //CASO NÃO TENHA PERRMISSAO, RETORNA ERRO
-        return res.status(403).json({ message: 'Você não tem permissão para editar usuários.' });
-    }
+            //CASO NÃO TENHA PERRMISSAO, RETORNA ERRO
+            return res.status(403).json({ message: 'Você não tem permissão para editar usuários.' });
+        }
         try{
-                //BUSCA O USUARIO PELO ID
-                const user = await User.findById(idUsuario)
-                //SE NÃO ENCONTRAR O USUARIO, RETORNA UM ERRO
-                if(!user){
-                    return res.status(404).json({message: "Usuario não encontrado"})
+            //BUSCA O USUARIO PELO ID
+            const user = await User.findById(idUsuario)
+            //SE NÃO ENCONTRAR O USUARIO, RETORNA UM ERRO
+            if(!user){
+                return res.status(404).json({message: "Usuario não encontrado"})
+            }
+            //DEFINE O NOVO VALOR PARA CADA PARAMETRO ENVIADO
+            if(nome) {user.nome = nome}
+            if(sobrenome) {user.sobrenome = sobrenome}
+            if(telefone) {user.telefone = telefone}
+            if(endereco) {user.endereco = endereco}
+            if(role) {
+                //SE HOUVER ROLE, VERIFICA SE ESTÁ CORRETO
+                if (['admin', 'paciente', 'medico', 'atendente', 'enfermeiro'].includes(role.toLowerCase())) {
+                    user.role = role.toLowerCase();
+                } else {
+                    return res.status(400).json({message:'Role não reconhecida, use: admin, paciente, medico, atendente, enfermeiro'})
                 }
-                //DEFINE O NOVO VALOR PARA CADA PARAMETRO ENVIADO
-                if(nome) {user.nome = nome}
-                if(sobrenome) {user.sobrenome = sobrenome}
-                if(telefone) {user.telefone = telefone}
-                if(endereco) {user.endereco = endereco}
-                if(role) {
-                    //SE HOUVER ROLE, VERIFICA SE ESTÁ CORRETO
-                    if (['admin', 'paciente', 'medico', 'atendente', 'enfermeiro'].includes(role.toLowerCase())) {
-                        user.role = role.toLowerCase();
-                    } else {
-                return res.status(400).json({message:'Role não reconhecida, use: admin, paciente, medico, atendente, enfermeiro'})
-                    }
+            }
+                //SE FOR PREENCHIDO A SENHA, FAZ A TROCA
+                if (senha) {
+                    const salt = await bcrypt.genSalt(saltRounds)
+                    const hash = await bcrypt.hash(senha, salt)
+                    user.senha = hash
                 }
                 //EM CASO DE ALTERAÇÃO DE EMAIL, VERIFICA SE NÃO ESTÁ EM USO
                 if(email) {
