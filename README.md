@@ -39,6 +39,14 @@ node app.js
 #ou
 npm start
 ```
+
+### Execução da aplicação
+Após iniciar o servidor, a aplicação estará disponivel em:
+
+    http://localhost:3000
+
+Por padrão, a API roda na porta 3000. Certifique-se de que essa porta esteja disponível em sua máquina. Caso deseje alterar, edite o valor diretamente no app.js.
+
 ### Usuário padrão
 Ao iniciar o sistema pela primeira vez, é criado automaticamente um usuário administrador para permitir a configuração inicial da aplicação.
 
