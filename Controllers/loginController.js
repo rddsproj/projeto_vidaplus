@@ -15,6 +15,10 @@ module.exports = class loginController{
         //DEFINE AS VARIAVEIS
         const email = req.body.email
         const senha = req.body.senha
+
+        if (!email || !senha){
+            return res.status(400).json({ message: 'Informe todos os dados.' });
+        }
         try{
         //BUSCA O USUARIO PELO EMAIL
         const user = await User.findOne({email:email});
