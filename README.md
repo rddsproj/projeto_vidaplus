@@ -20,7 +20,7 @@ git clone https://github.com/rddsproj/projeto_vidaplus.git
 ```
 ### Acesse a pasta do projeto
 ```bash
-cd projeto-vidaplus
+cd projeto_vidaplus
 ```
 ### Configure o arquivo .env com a chave secreta e a URI do mongoDB
 Crie um arquivo .env na raiz do projeto com o seguinte conteudo:
@@ -28,6 +28,10 @@ Crie um arquivo .env na raiz do projeto com o seguinte conteudo:
 #Substitua "sua-chave-secreta" e "sua-uri-do-mongodb" pelos valores reais.
 JWT_SECRET="sua-chave-secreta" 
 MONGODB_URI="sua-uri-do-mongodb"
+
+#Exemplo:
+JWT_SECRET=meuSegredoUltraSecreto123!@#2025
+MONGODB_URI=mongodb://localhost:27017/vidaplus
 ```
 ### Instale as depencias
 ```bash
